@@ -1,0 +1,37 @@
+name: Deploy to IPFS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Pinata SDK
+        run: npm install @pinata/sdk
+
+      - name: Deploy to Pinata
+        env:
+          PINATA_API_KEY: ${{ secrets.PINATA_API_KEY }}
+          PINATA_API_SECRET: ${{ secrets.PINATA_API_SECRET }}
+        run: |
+          echo "Uploading files to Pinata..."
+          node <<EOF
+          const pinataSDK = require('@pinata/sdk');
+          const fs = require('fs');
+
+          const pinata = pinataSDK(process.env.PINATA_API_KEY, process.env.PINATA_API_SECRET);
+          const files = fs.readdirSync('./').filter(file => !file.startsWith('.'));
+
+          files.forEach(file => {
+              pinata.pinFileToIPFS(fs.createReadStream(file))
+                  .then(result => console.log(`Pinned: ${file} - CID: ${result.IpfsHash}`))
+                  .catch(err => console.error(`Failed to pin ${file}:`, err.message));
+          });
+          EOF
